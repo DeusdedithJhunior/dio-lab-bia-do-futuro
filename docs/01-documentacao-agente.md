@@ -100,10 +100,10 @@ flowchart TD
 
 | Componente               | Descrição                                                                                      |
 | ------------------------ | ---------------------------------------------------------------------------------------------- |
-| **Interface**            | Chatbot navegável (ex.: Streamlit ou WebApp simples)                                           |
-| **LLM**                  | Modelo de linguagem (ex.: GPT-4/4.1 via API) para entendimento e geração                       |
-| **Base de Conhecimento** | PDFs/Markdown com produtos, CSV/JSON com transações, preferências e perfis                     |
-| **Validação**            | Módulo anti-alucinação: checagem de fonte, consistência, citações e política de “não inventar” |
+| **Interface**            | Chatbot navegável (ex.: Streamlit)                                           |
+| **LLM**                  | Opcional: LLM local via Ollama (ex.: llama3.2:3b-instruct, phi3:mini, mistral:7b-instruct). Padrão do MVP: sem LLM, respostas determinísticas baseadas em regras e na base local.                       |
+| **Base de Conhecimento** | Arquivos da pasta data: transacoes.csv, historico_atendimento.csv, perfil_investidor.json, produtos_financeiros.json (com Ações, FIIs, Cripto, BDRs, etc.).                     |
+| **Validação**            | Guardrails: checagem de escopo (não responder clima/assuntos fora de finanças), LGPD (bloqueio a senha/CPF/CVV), anti-alucinação (só responder com base na base local), citações de fonte (ex.: “fonte: produtos_financeiros.json”). |
 
 ***
 

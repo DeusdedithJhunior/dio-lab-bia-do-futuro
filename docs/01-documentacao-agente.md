@@ -100,8 +100,8 @@ flowchart TD
 
 | Componente               | Descrição                                                                                      |
 | ------------------------ | ---------------------------------------------------------------------------------------------- |
-| **Interface**            | Chatbot navegável (ex.: Streamlit)                                           |
-| **LLM**                  | Opcional: LLM local via Ollama (ex.: llama3.2:3b-instruct, phi3:mini, mistral:7b-instruct). Padrão do MVP: sem LLM, respostas determinísticas baseadas em regras e na base local.                       |
+| **Interface**            | Chatbot em Streamlit, com histórico de mensagens, modo sem LLM (determinístico) e com LLM local (Ollama) opcional.                                           |
+| **LLM**                  | Ollama (local). Sugestões de modelos: llama3.2:3b-instruct, phi3:mini, mistral:7b-instruct. Caso a opção esteja desligada, o app roda apenas com regras determinísticas (sem IA).                       |
 | **Base de Conhecimento** | Arquivos da pasta data: transacoes.csv, historico_atendimento.csv, perfil_investidor.json, produtos_financeiros.json (com Ações, FIIs, Cripto, BDRs, etc.).                     |
 | **Validação**            | Guardrails: checagem de escopo (não responder clima/assuntos fora de finanças), LGPD (bloqueio a senha/CPF/CVV), anti-alucinação (só responder com base na base local), citações de fonte (ex.: “fonte: produtos_financeiros.json”). |
 

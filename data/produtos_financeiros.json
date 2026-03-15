@@ -24,19 +24,35 @@
     "indicado_para": "Quem pode esperar 90 dias (isento de IR)"
   },
   {
-    "nome": "Fundo Multimercado",
-    "categoria": "fundo",
-    "risco": "medio",
-    "rentabilidade": "CDI + 2%",
-    "aporte_minimo": 500.00,
-    "indicado_para": "Perfil moderado que busca diversificação"
-  },
-  {
-    "nome": "Fundo de Ações",
-    "categoria": "fundo",
+    "nome": "Ações",
+    "categoria": "mercado_variavel",
     "risco": "alto",
     "rentabilidade": "Variável",
-    "aporte_minimo": 100.00,
+    "aporte_minimo": 1.00,
+    "indicado_para": "Perfil arrojado que busca crescimento no longo prazo"
+  },
+  {
+    "nome": "FIIs",
+    "categoria": "fundo_imobiliario",
+    "risco": "alto",
+    "rentabilidade": "Variável",
+    "aporte_minimo": 10.00,
     "indicado_para": "Perfil arrojado com foco no longo prazo"
+  }, 
+  {
+    "nome": "Criptoativos",
+    "categoria": "cripto",
+    "risco": "alto",
+    "rentabilidade": "Alta volatilidade",
+    "aporte_minimo": 1.00,
+    "indicado_para": "Quem quer exposição ao mercado digital e aceita forte oscilação"
+  },
+  {
+    "nome": "BDRs (Recibos de Depósito de Ações)",
+    "categoria": "mercado_variavel",
+    "risco": "alto",
+    "rentabilidade": "Variável",
+    "aporte_minimo": 50.00,
+    "indicado_para": "Perfil que deseja acessar empresas globais com exposição ao dólar"
   }
 ]

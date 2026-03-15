@@ -2,10 +2,12 @@
 """
 app.py — UI (Streamlit) da MAIA
 --------------------------------
-- Sidebar padrão (LLM toggle, modelo, janela, debug, contexto)
+- Sidebar padrão (LLM, modelo, janela, debug, contexto + diagnóstico)
 - Saudação única (streaming) com nome do perfil e rerun
-- Roteamento de intenções (meta, orçamento, maior gasto, produtos, ajuda)
-- Fluxo híbrido: determinístico -> opcional reescrita pelo Ollama
+- Roteamento robusto: recomendação (educativa/compatível com perfil), gasto total,
+  gasto por categoria, saldo, maior gasto, metas, rentabilidade de produto, produtos,
+  perfil de investidor, ajuda, fallback
+- Determinístico é fonte de verdade; LLM só reescreve (opcional)
 """
 
 from pathlib import Path
@@ -13,12 +15,10 @@ from typing import Optional
 import json
 import re
 import time
-from datetime import datetime, timedelta
 
 import pandas as pd
 import streamlit as st
 
-# Nossos módulos
 import config
 import agente
 
@@ -27,7 +27,6 @@ st.set_page_config(page_title="MAIA - Assistente Financeira", page_icon="📈", 
 st.title("📈 MAIA — Assistente Financeira (MVP Local)")
 st.caption("MVP educativo, sem recomendação. Dados mockados em `../data/`.")
 
-# CSS leve para legibilidade
 st.markdown("""
 <style>
 section.main .block-container { max-width: 900px; }
@@ -78,7 +77,7 @@ except Exception as e:
     st.error(f"Erro ao carregar dados: {e}")
     st.stop()
 
-# ============ FUNÇÃO DE STREAMING ============
+# ============ STREAMING ============
 def stream_texto(texto: str, atraso_chars: float = 0.008, atraso_paragrafo: float = 0.12):
     box = st.empty()
     buffer = ""
@@ -115,14 +114,32 @@ with st.sidebar:
         ctx = agente.montar_contexto(df_tx, df_hist, perfil, produtos, janela_dias=janela)
         st.code(ctx, language="markdown")
 
+    # Diagnóstico das funções carregadas (ajuda a detectar AttributeError)
+    with st.expander("Diagnóstico (dev)"):
+        try:
+            funcs = [
+                "eh_intencao_total_gasto", "resposta_total_gasto",
+                "eh_intencao_saldo", "resposta_saldo",
+                "eh_intencao_gasto_categoria", "resposta_gasto_categoria",
+                "eh_intencao_maior_gasto", "resumo_maior_gasto",
+                "eh_intencao_recomendacao", "resposta_recomendacao_contextual",
+                "eh_intencao_perfil_investidor", "resposta_perfil_investidor",
+                "eh_intencao_rentabilidade_produto", "buscar_produto",
+            ]
+            snap = [f"{f}: {hasattr(agente, f)}" for f in funcs]
+            st.code("Funções no módulo agente:\n" + "\n".join(snap))
+            st.caption(f"agente.py carregado de: {getattr(agente, '__file__', 'desconhecido')}")
+        except Exception as e:
+            st.error(f"Diagnóstico falhou: {e}")
+
 # ============ HISTÓRICO + BOAS-VINDAS ============
 if "historico" not in st.session_state:
     st.session_state.historico = []
 if "welcomed" not in st.session_state:
     st.session_state.welcomed = False
 
-def mensagem_boas_vindas(nome_cliente: Optional[str]) -> str:
-    primeiro = agente.extrair_primeiro_nome(nome_cliente)
+def mensagem_boas_vindas(perfil_dict: dict) -> str:
+    primeiro = agente.extrair_primeiro_nome(perfil_dict.get("nome") if isinstance(perfil_dict, dict) else None)
     tratamento = f"Sr {primeiro}" if primeiro != "cliente" else "cliente"
     return (
         f"**Oi, {tratamento}! Tudo bem? Eu sou a MAIA.** 👋\n\n"
@@ -132,21 +149,18 @@ def mensagem_boas_vindas(nome_cliente: Optional[str]) -> str:
     )
 
 if not st.session_state.welcomed:
-    texto_boas = mensagem_boas_vindas(perfil.get("nome") if isinstance(perfil, dict) else None)
-
+    texto_boas = mensagem_boas_vindas(perfil)
     if st.session_state.get("usar_llm"):
         llm_welcome = agente.perguntar_ollama(
             config.SYSTEM_PROMPT,
-            "Reescreva esta mensagem de boas-vindas de forma acolhedora, em até 3 parágrafos, mantendo o conteúdo:\n\n" + texto_boas,
+            "Reescreva esta mensagem de boas-vindas de forma acolhedora, mantendo o conteúdo:\n\n" + texto_boas,
             config.OLLAMA_URL,
             st.session_state.get("modelo_ollama", config.OLLAMA_MODEL_DEFAULT),
         )
         if llm_welcome:
             texto_boas = llm_welcome
-
     with st.chat_message("assistant"):
         stream_texto(texto_boas, atraso_chars=0.008, atraso_paragrafo=0.12)
-
     st.session_state.historico.append({"role": "assistant", "content": texto_boas})
     st.session_state.welcomed = True
     st.rerun()
@@ -156,92 +170,85 @@ for msg in st.session_state.historico:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# ============ ENTRADA DO USUÁRIO ============
-pergunta = st.chat_input("Digite sua pergunta (ex.: 'Quero juntar 10000 em 12 meses')")
+# ============ ENTRADA ============
+pergunta = st.chat_input("Digite sua pergunta (ex.: 'Quanto gastei com alimentação?' ou 'Quanto gastei?')")
 if pergunta:
     # Guardrails
     if agente.eh_sensivel(pergunta):
         resp = "Não tenho acesso e não posso solicitar dados sensíveis (senha, CPF, CVV, etc.). Posso te ajudar com orçamento, metas ou produtos."
         st.session_state.historico += [{"role": "user", "content": pergunta}, {"role": "assistant", "content": resp}]
         st.rerun()
-
     if agente.fora_escopo(pergunta):
-        resp = "Sou especializada em finanças e não tenho informações sobre esse assunto. Posso ajudar com orçamento, metas e produtos (Tesouro, CDB, LCI/LCA, Ações, FIIs, Cripto e BDRs)."
+        resp = "Sou especializada em finanças e não tenho informações sobre esse assunto. Posso ajudar com orçamento, metas e produtos financeiros."
         st.session_state.historico += [{"role": "user", "content": pergunta}, {"role": "assistant", "content": resp}]
         st.rerun()
 
-    # Adiciona usuário
     st.session_state.historico.append({"role": "user", "content": pergunta})
     with st.chat_message("user"):
         st.markdown(pergunta)
 
-    # Balão do assistente + placeholder "Digitando…"
     assistant_box = st.chat_message("assistant")
     with assistant_box:
         info = st.empty()
         info.markdown("*Digitando…*")
 
-    # Continuação "sim" para passo a passo
-    if st.session_state.get("aguardando_explicacao_meta"):
-        if agente.eh_afirmativo(pergunta):
-            ctx_meta = st.session_state["aguardando_explicacao_meta"]
-            meta = float(ctx_meta["valor_meta"])
-            meses = int(ctx_meta["meses"])
-            aporte_inicial = float(ctx_meta["aporte_inicial"])
-            taxa_mensal = float(ctx_meta["taxa_mensal"])
-
-            if taxa_mensal <= 0:
-                restante = max(0.0, meta - aporte_inicial)
-                aporte_mensal = restante / meses
-            else:
-                i = taxa_mensal
-                fator = ((1 + i) ** meses - 1) / i
-                restante = max(0.0, meta - aporte_inicial * ((1 + i) ** meses))
-                aporte_mensal = (restante / fator) if fator > 0 else restante / meses
-
-            base_resp = agente.explicar_meta_step_by_step(meta, meses, aporte_inicial, taxa_mensal, aporte_mensal)
-
-            st.session_state.pop("aguardando_explicacao_meta", None)
-            with assistant_box:
-                info.empty()
-                stream_texto(base_resp, atraso_chars=0.008, atraso_paragrafo=0.12)
-            st.session_state.historico.append({"role": "assistant", "content": base_resp})
-            st.rerun()
-
-        elif agente.eh_negativo(pergunta):
-            st.session_state.pop("aguardando_explicacao_meta", None)
-            base_resp = "Sem problemas! Se quiser ver o cálculo depois, é só pedir: *“mostre o passo a passo”*."
-            with assistant_box:
-                info.empty()
-                stream_texto(base_resp, atraso_chars=0.008, atraso_paragrafo=0.12)
-            st.session_state.historico.append({"role": "assistant", "content": base_resp})
-            st.rerun()
-        # se não for afirmativo/negativo, segue o fluxo abaixo
-
-    # ===== Roteamento de intenção =====
     t = pergunta.lower()
     usar_llm_flag = st.session_state.usar_llm
     modelo_sel = st.session_state.get("modelo_ollama", config.OLLAMA_MODEL_DEFAULT)
     janela_atual = st.session_state.get("janela", config.DEFAULT_WINDOW_DAYS)
 
-    if agente.eh_intencao_maior_gasto(pergunta):
-        base_resp = agente.resumo_maior_gasto(df_tx, janela_dias=janela_atual)
-        # (Opcional) poderíamos reescrever com LLM, mas costuma ser curto
+    # ===== ROTEAMENTO POR INTENÇÃO =====
+    # 1) Recomendação EDUCATIVA compatível com perfil
+    if agente.eh_intencao_recomendacao(pergunta):
+        base_resp = agente.resposta_recomendacao_contextual(df_tx, perfil, produtos, janela_dias=janela_atual)
+        if usar_llm_flag:
+            fatos = (
+                f"Gasto_mensal_aprox={agente.fmt_moeda(agente.gasto_medio_mensal(df_tx, janela_atual))}\n"
+                f"Reserva_3m_6m_intervalo=calc_em_texto\n"
+                f"Janela_dias={janela_atual}\n"
+                f"Perfil={perfil.get('perfil_investidor','-')}\n"
+            )
+            instrucoes = (
+                "Reescreva acolhedor, preservando números e a ideia de reserva 3-6 meses. "
+                "Inclua um próximo passo para simulação. Não recomende ativo específico."
+            )
+            _ = agente.reescrever_com_llm(
+                usar_llm_flag, modelo_sel, config.SYSTEM_PROMPT,
+                instrucoes, fatos, config.OLLAMA_URL,
+                fontes=['transacoes.csv', 'perfil_investidor.json', 'produtos_financeiros.json']
+            )
 
+    # 2) Gasto total no período (ex.: "quanto gastei?")
+    elif agente.eh_intencao_total_gasto(pergunta):
+        base_resp = agente.resposta_total_gasto(df_tx, janela_dias=janela_atual)
+
+    # 3) Gasto por categoria (ex.: alimentação)
+    elif agente.eh_intencao_gasto_categoria(pergunta):
+        base_resp = agente.resposta_gasto_categoria(df_tx, pergunta, janela_dias=janela_atual)
+
+    # 4) Saldo no período
+    elif agente.eh_intencao_saldo(pergunta):
+        base_resp = agente.resposta_saldo(df_tx, janela_dias=janela_atual)
+
+    # 5) Maior gasto
+    elif agente.eh_intencao_maior_gasto(pergunta):
+        base_resp = agente.resumo_maior_gasto(df_tx, janela_dias=janela_atual)
+
+    # 6) Perfil do investidor
+    elif agente.eh_intencao_perfil_investidor(pergunta):
+        base_resp = agente.resposta_perfil_investidor(perfil)
+
+    # 7) Metas
     elif any(k in t for k in ["meta", "juntar", "guardar", "objetivo"]):
         nums = re.findall(r"(\d+[.,]?\d*)", pergunta)
         if len(nums) >= 2:
             valor = float(nums[0].replace(",", "."))
             meses = int(float(nums[1].replace(",", ".")) * 12) if "ano" in t else int(float(nums[1].replace(",", ".")))
-
-            texto_meta, fatos_meta = agente.simular_meta_dados(valor_meta=valor, meses=meses, aporte_inicial=0.0, taxa_mensal=0.0)
+            texto_meta, fatos_meta = agente.simular_meta_dados(
+                valor_meta=valor, meses=meses, aporte_inicial=0.0, taxa_mensal=0.0
+            )
             base_resp = texto_meta
 
-            st.session_state["aguardando_explicacao_meta"] = {
-                "valor_meta": valor, "meses": meses, "aporte_inicial": 0.0, "taxa_mensal": 0.0
-            }
-
-            # Reescrita opcional pelo LLM
             if usar_llm_flag and fatos_meta:
                 fatos = (
                     f"Meta_total={agente.fmt_moeda(fatos_meta['meta_total'])}\n"
@@ -250,66 +257,45 @@ if pergunta:
                     f"Taxa_mensal=0.00% a.m.\n"
                     f"Aporte_mensal={agente.fmt_moeda(fatos_meta['aporte_mensal'])}\n"
                 )
-                instrucoes = (
-                    "Explique a simulação de meta com título, bullets e destaque do aporte mensal. "
-                    "Finalize oferecendo 'Quer ver o passo a passo do cálculo?'."
+                instrucoes = "Explique a simulação com bullets e destaque do aporte. Ofereça 'Quer ver o passo a passo?'."
+                _ = agente.reescrever_com_llm(
+                    usar_llm_flag, modelo_sel, config.SYSTEM_PROMPT,
+                    instrucoes, fatos, config.OLLAMA_URL,
+                    fontes=['perfil_investidor.json']
                 )
-                llm_text = agente.reescrever_com_llm(usar_llm_flag, modelo_sel, config.SYSTEM_PROMPT, instrucoes, fatos, config.OLLAMA_URL)
-                if llm_text:
-                    base_resp = llm_text
         else:
             base_resp = (
                 f"{agente.md_titulo('🎯 Simulação de meta')}\n\n"
                 "Para simular a meta, informe o **valor** e o **prazo em meses**.\n\n"
-                "Exemplo: `Quero juntar 10000 em 12 meses`."
+                "Ex.: `Quero juntar 10000 em 12 meses`."
             )
-            st.session_state.pop("aguardando_explicacao_meta", None)
 
-    elif any(k in t for k in ["orçamento", "orcamento", "gasto", "despesa", "categorias"]):
-        texto_orc, fatos_orc = agente.analisar_orcamento(df_tx, janela_dias=janela_atual)
-        base_resp = texto_orc
-        if usar_llm_flag:
-            cat_dados = "; ".join([f"{c}={agente.fmt_moeda(v)}" for c, v in fatos_orc["top_categorias"]]) or "sem_despesas"
-            fatos = (
-                f"Janela_dias={fatos_orc['janela_dias']}\n"
-                f"Entradas={agente.fmt_moeda(fatos_orc['entrada'])}\n"
-                f"Saidas={agente.fmt_moeda(fatos_orc['saida'])}\n"
-                f"Saldo={agente.fmt_moeda(fatos_orc['saldo'])}\n"
-                f"TopCategorias={cat_dados}\n"
-            )
-            instrucoes = (
-                "Explique orçamento com título, bullets de Entradas/Saídas/Saldo e liste principais categorias. "
-                "Finalize com uma dica educativa curta (sem recomendar)."
-            )
-            llm_text = agente.reescrever_com_llm(usar_llm_flag, modelo_sel, config.SYSTEM_PROMPT, instrucoes, fatos, config.OLLAMA_URL)
-            if llm_text:
-                base_resp = llm_text
+    
+    elif (nome_prod := agente.eh_intencao_rentabilidade_produto(pergunta)) is not None:
+        base_resp = agente.resposta_rentabilidade_produto(produtos, nome_prod)
 
+    # 9) Produtos (listagem/explicação)
     elif any(k in t for k in ["produto", "tesouro", "cdb", "lci", "lca", "ações", "acoes", "fii", "bdr", "cripto"]):
-        texto_prod, fatos_prod = agente.buscar_produto(pergunta, produtos)
+        texto_prod, _ = agente.buscar_produto(pergunta, produtos)
         base_resp = texto_prod
-        if usar_llm_flag:
-            if fatos_prod:
-                linhas = [f"{p['nome']} | cat={p['categoria']} | risco={p['risco']} | rent={p['rentabilidade']} | aporte_min={agente.fmt_moeda(p['aporte_minimo'])}" for p in fatos_prod[:6]]
-                fatos = "Produtos:\n" + "\n".join(linhas)
-            else:
-                fatos = "Produtos: nenhum_match_exato"
-            instrucoes = (
-                "Liste os produtos encontrados com bullets. "
-                "Se houver BDR, mencione exposição ao dólar; se houver Cripto, alta volatilidade. "
-                "Citar fonte 'produtos_financeiros.json'. Não recomendar."
-            )
-            llm_text = agente.reescrever_com_llm(usar_llm_flag, modelo_sel, config.SYSTEM_PROMPT, instrucoes, fatos, config.OLLAMA_URL)
-            if llm_text:
-                base_resp = llm_text
 
+    # 10) Ajuda
     elif any(k in t for k in ["ajuda", "dúvida", "duvida", "como funciona"]):
-        base_resp = "Posso te ajudar com orçamento, metas, simulações simples e explicar produtos financeiros da nossa base (fonte: produtos_financeiros.json). O que você deseja?"
+        base_resp = "Posso te ajudar com orçamento, metas, simulações simples e explicar produtos financeiros da nossa base. Sobre o que deseja falar?"
 
+    # 11) Fallback (sem frase da saudação)
     else:
-        base_resp = "Posso te ajudar com **orçamento**, **metas** e **produtos** (Tesouro, CDB, LCI/LCA, Ações, FIIs, Cripto e BDRs). Como prefere começar?"
+        base_resp = (
+            "Não entendi exatamente. Você pode perguntar, por exemplo:\n"
+            "- *Quanto gastei?*\n"
+            "- *Quanto gastei com alimentação?*\n"
+            "- *Qual é meu saldo?*\n"
+            "- *Qual investimento você recomenda para mim?* (educativo, baseado no seu perfil)\n"
+            "- *Quanto rende o produto Tesouro Selic?*\n"
+            "- *Qual o meu perfil de investidor?*"
+        )
 
-    # Exibe com streaming e persiste
+    # Exibir com streaming e persistir
     with assistant_box:
         info.empty()
         stream_texto(base_resp, atraso_chars=0.008, atraso_paragrafo=0.12)

@@ -11,7 +11,7 @@ A base de conhecimento utiliza os arquivos da pasta `data/`, que representam o *
 | **`produtos_financeiros.json`** | JSON    | Catálogo de produtos de referência (Tesouro Selic, CDB, LCI/LCA, **Ações**, **FIIs**, **Criptoativos**, **BDRs**). Usado para FAQs didáticas, comparações e **citação de fonte**.                                                    |
 | **`transacoes.csv`**            | CSV     | Análise de comportamento financeiro. Estrutura: `data`, `descricao`, `categoria`, `valor`, `tipo`. Serve para orçamento, padrões de gasto e apoio às simulações. Não há `user_id`: o dataset representa um **cliente único** no MVP. |
 
-***
+---
 
 ## Adaptações nos Dados
 
@@ -19,217 +19,175 @@ Os arquivos foram mantidos **quase totalmente intactos**, com **apenas uma alter
 
 ### ✔ `produtos_financeiros.json` (alterado intencionalmente)
 
-Trocamos produtos mais complexos por opções **mais familiares ao usuário leigo**:
+Incluímos produtos familiares ao usuário leigo:
 
-*   **Ações** (mercado variável, risco alto)
-*   **FIIs** (fundos imobiliários, variável)
-*   **Criptoativos** (alta volatilidade)
-*   **BDRs** (exposição ao dólar)
-*   Mantivemos RF: Tesouro Selic, CDB, LCI/LCA
+- **Ações**  
+- **FIIs**  
+- **Criptoativos** (alta volatilidade)  
+- **BDRs** (exposição ao dólar)  
+- Tesouro Selic, CDB, LCI/LCA (renda fixa)
 
-**Motivos:**
+> Todos os dados são **mockados** e não constituem recomendação.
 
-1.  Facilitar explicações sobre renda fixa x variável.
-2.  Demonstrar risco, volatilidade e exposição ao câmbio.
-3.  Permitir que a MAIA eduque o usuário sem prometer retorno.
-
-> Todos os dados são **mockados** e não constituem recomendação ou sugestão de investimento.
-
-***
+---
 
 ## Estratégia Geral de Integração da Base
 
-A MAIA segue uma arquitetura **híbrida**, formada por:
+### 1) **Motor Determinístico (Python)** — *Fonte de Verdade*
 
-### 1) **Motor Determinístico (Python)** → Fonte de verdade
+O motor determinístico é responsável por:
 
-Tudo que envolve **cálculo**, **busca**, **formatação de fatos**, **validação** ou **insumos numéricos** é feito **localmente**, incluindo:
+- Cálculos financeiros  
+- Detecção de intenção  
+- Agregações (entrada, saída, saldo)  
+- Top categorias  
+- Aporte mensal (metas)  
+- Maior gasto  
+- Resumo de produtos  
+- Montagem do contexto
 
-*   janela de transações
-*   totais (entrada/saída/saldo)
-*   top categorias
-*   cálculo de aporte mensal (metas)
-*   resumo de produtos
-*   montagem do contexto
+Ele garante:
 
-Esse motor garante:
+- Consistência  
+- Transparência  
+- Rastreabilidade  
+- Zero alucinação  
 
-*   consistência
-*   ausência de alucinação
-*   rastreabilidade dos dados
-*   decisões transparentes
+### 2) **LLM Local (Ollama)** — *Reescrita Natural (Opcional)*
 
-### 2) **LLM Local (Ollama)** → Reescrita natural (opcional)
+- O LLM **não calcula**  
+- Recebe **somente fatos determinísticos**  
+- Reescreve respostas de forma mais fluida  
+- Nunca recebe o CSV inteiro  
+- Funciona como **narrador**, não como fonte de verdade  
 
-O LLM **não calcula** nada.  
-Ele recebe **apenas os fatos determinísticos** e gera uma explicação mais fluida e natural.
+APIs usadas:  
+- `/api/chat`  
+Modelos comuns:  
+- `mistral:7b-instruct`  
+- `mistral:latest`  
+- `phi3:mini`
 
-O LLM funciona como um **"narrador inteligente"**, não como fonte de verdade.
+---
 
-#### APIs utilizadas no projeto:
+# 🎛️ Menu Lateral (Sidebar) — Impacto na Base de Conhecimento
 
-*   `/api/chat` → multi-turn (mensagens como system/user/assistant)
-*   Modelos recomendados:
-    *   `llama3.2:3b-instruct`
-    *   `phi3:mini`
-    *   `mistral:7b-instruct`
+A sidebar é um componente padrão da MAIA e **controla como a base de conhecimento é usada**.
 
-Se o LLM falhar/estiver desligado, MAIA responde com **templates determinísticos bem formatados** (fallback seguro).
+## Componentes da Sidebar e relação com a base
 
-***
+### **1. Usar LLM local (Ollama)**
+- **ON:** o LLM reescreve o texto, usando os fatos determinísticos.  
+- **OFF:** respostas puramente determinísticas, sem IA.  
+*A base consultada é a mesma; só muda o formato da resposta.*
 
-## Estratégia de Uso da Base de Conhecimento
+---
 
-### A MAIA **não envia** a base inteira ao LLM.
+### **2. Modelo (Ollama)**
+Ex.: `mistral:7b-instruct`, `mistral:latest`, `phi3:mini`.
 
-Ela utiliza **recortes inteligentes**, selecionados conforme intenção:
+- Define *como* a resposta será escrita (estilo).  
+- Os cálculos e dados permanecem iguais.
 
-### 1) Na intenção **orcamento**
+---
 
-Contexto inclui:
+### **3. Janela de Análise (dias)**
+Afeta diretamente:
 
-*   janela X dias
-*   entradas, saídas, saldo
-*   top categorias
-*   últimas transações
-*   (opcional) histórico recente
+- quantidade de transações carregadas  
+- cálculo de entradas  
+- cálculo de saídas  
+- saldo  
+- categorias principais  
+- maior gasto  
+- últimas transações mostradas  
 
-### 2) Na intenção **meta**
+Esse parâmetro define **o recorte de dados do `transacoes.csv`** usado em cada análise.
 
-Contexto inclui:
+---
 
-*   valor da meta
-*   prazo
-*   aporte inicial
-*   cálculo determinístico
-*   passo a passo **sob demanda** (usuário responde “sim”)
+### **4. Mostrar status dos arquivos (debug)**
+Exibe se os arquivos da pasta `data/`:
 
-### 3) Na intenção **produtos**
+- existem  
+- estão no formato correto  
+- podem ser carregados  
 
-Inclui somente:
+Recurso útil para auditoria e manutenção.
 
-*   produtos relacionados à pergunta
-*   resumo amigável
-*   riscos principais
-*   observações educativas (cripto, volatilidade; BDR, exposição ao dólar)
+---
 
-### 4) Na intenção **faq**
+### **5. Ver contexto atual**
+Mostra o contexto consolidado que o motor determinístico monta, incluindo:
 
+- perfil  
+- metas  
+- transações filtradas pela janela  
+- histórico  
+- produtos disponíveis  
+
+É uma ferramenta de transparência e depuração.
+
+---
+
+## Estratégia de Uso da Base por Intenção
+
+### 🔹 **Intenção: orçamento**
+Usa:
+
+- transações filtradas pela janela  
+- totais  
+- saldo  
+- categorias  
+- transações recentes  
+- histórico opcional  
+
+### 🔹 **Intenção: meta**
 Inclui:
 
-*   perfil do usuário
-*   metas existentes
-*   histórico recente
+- valor da meta  
+- prazo  
+- aporte inicial  
+- cálculo determinístico  
+- passo a passo sob demanda  
 
-***
+### 🔹 **Intenção: produtos**
+Inclui:
 
-## Exemplos de Uso com LLM (Versão Oficial)
+- produtos relacionados à pergunta  
+- rentabilidade geral (sem prometer retorno)  
+- risco e observações educativas  
+- citações obrigatórias de fonte  
 
-### 1) Reescrita de orçamento (Ollama)
+### 🔹 **Intenção: maior gasto**
+Inclui:
 
-```python
-payload = {
-    "model": "llama3.2:3b-instruct",
-    "messages": [
-        {"role": "system", "content": "Você é a MAIA... regras de segurança..."},
-        {"role": "user", "content": (
-            "Reescreva de forma clara e didática, sem inventar nada. "
-            "Use SOMENTE os fatos a seguir:\n"
-            "Janela_dias=30\n"
-            "Entradas=R$ 5000\n"
-            "Saidas=R$ 2364\n"
-            "Saldo=R$ 2636\n"
-            "TopCategorias=Alimentacao:450; Moradia:1200; Lazer:55\n"
-        )}
-    ],
-    "options": {"temperature": 0.2}
-}
-```
+- categoria com maior soma  
+- maior transação individual  
+- janela escolhida  
 
-***
+### 🔹 **Intenção: FAQ**
+Inclui:
 
-## Exemplo de Contexto Montado (oficial)
+- perfil  
+- metas existentes  
+- histórico breve  
 
-```text
-Perfil do cliente:
-- Nome: João Silva
-- Renda mensal: R$ 5000.00
-- Perfil investidor: moderado
-- Objetivo principal: Construir reserva de emergência
-
-Metas:
-- Completar reserva de emergência: R$ 15000.00 até 2026-06
-
-Últimas transações (até 10 linhas):
-- 2025-10-03 · Supermercado · alimentacao · R$ 450,00 · saida
-- 2025-10-10 · Restaurante · alimentacao · R$ 120,00 · saida
-- 2025-10-12 · Uber · transporte · R$ 45,00 · saida
-
-Interações recentes:
-- 2025-10-12: chat · Metas financeiras — Cliente acompanhou o progresso (resolvido: sim)
-
-Produtos de referência (fonte: produtos_financeiros.json):
-- Tesouro Selic (renda_fixa, risco baixo)
-- CDB (renda_fixa, risco baixo)
-- Ações (renda_variavel, risco alto)
-- Criptoativos (alta volatilidade)
-- BDRs (exposição ao dólar)
-
-Instruções:
-- Use APENAS os dados acima.
-- Não invente informações.
-- Citar fonte ao explicar produtos.
-- Não prometa retornos financeiros.
-```
-
-***
-
-## Regras Específicas de Comportamento da MAIA (Baseado na Base de Conhecimento)
-
-### Ao falar de **BDRs**
-
-*   Sempre mencionar **exposição ao dólar**.
-
-### Ao falar de **Criptoativos**
-
-*   Sempre mencionar **alta volatilidade**.
-*   Sempre classificar como **educacional**, nunca recomendação.
-
-### Ao fazer cálculos de meta
-
-*   Se o usuário pedir:  
-    → “*Quer ver o passo a passo?*”  
-    e ele responder “**sim**”:  
-    → mostrar equações + substituições numéricas.
-
-### Ao falar de orçamento
-
-*   Sempre trazer:
-    *   entradas
-    *   saídas
-    *   saldo
-    *   principais categorias
-    *   transações recentes
-
-***
+---
 
 ## Conclusão
 
-A **Base de Conhecimento** é o alicerce da MAIA.  
-Ela fornece **dados reais, estáveis e explicáveis**, enquanto o **Ollama local** permite:
+A **Base de Conhecimento** é o núcleo do processo da MAIA.  
+Ela fornece **fatos concretos**, enquanto:
 
-*   respostas mais naturais,
-*   tom humano,
-*   sem perda de precisão,
-*   sem dependência de API paga.
+- o motor determinístico garante precisão e segurança  
+- o Ollama (opcional) melhora a comunicação  
+- a **sidebar define como os dados serão recortados e utilizados**
 
-A estrutura atual combina:
+O resultado é um agente:
 
-*   **determinístico (exatidão)**
-*   **LLM local (naturalidade)**
-*   **guardrails (segurança obrigatória)**
-*   **contexto recortado (anti-alucinação)**
-
-Tudo rodando **localmente**, **offline**, **custo zero**.
-
-***
+- explicável  
+- transparente  
+- auditável  
+- totalmente local  
+- sem dependência de serviços externos  

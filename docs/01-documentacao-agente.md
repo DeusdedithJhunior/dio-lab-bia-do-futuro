@@ -88,11 +88,11 @@ Prioriza **clareza**, **didática** e **decisões baseadas em evidências**.
 ```mermaid
 flowchart TD
     A[Cliente] -->|Mensagem| B[Interface]
-    B --> C[LLM]
+    B --> C[Modelo de Linguagem - LLM]
     C --> D[Base de Conhecimento]
     D --> C
-    C --> E[Validação]
-    E --> F[Resposta]
+    C --> E[Validação / Segurança]
+    E --> F[Resposta Final]
 ```
 
 

@@ -233,5 +233,3 @@ A estrutura atual combina:
 Tudo rodando **localmente**, **offline**, **custo zero**.
 
 ***
-OU  
-➡️ o `README.md` de instalação/execução final do projeto MAIA.

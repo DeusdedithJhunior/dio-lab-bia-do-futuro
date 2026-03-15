@@ -1,6 +1,6 @@
 ***
 
-# 📘 MAIA — Assistente Financeira (MVP Local)
+# 📘 MAIA - Assistente Financeira (MVP Local)
 
 MAIA é uma assistente financeira educativa 100% **local**, construída com:
 

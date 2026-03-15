@@ -185,5 +185,3 @@
 *   Edge cases alinhados ao escopo: clima, assuntos fora da área, pedidos sensíveis.
 
 ***
-
-Qual deseja fazer a seguir?

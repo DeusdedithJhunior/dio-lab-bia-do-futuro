@@ -1,3 +1,5 @@
+***
+
 # Documentação do Agente
 
 ## Caso de Uso
@@ -18,11 +20,11 @@ Além disso, informações estão dispersas e o usuário não tem clareza de com
 
 A MAIA identifica a **intenção** do usuário (ex.: criar meta, analisar gastos, revisar orçamento), processa **dados reais da base local** e entrega:
 
-*   **Planejamento de metas** (aportemensal, prazo, simulações)
+*   **Planejamento de metas** (aporte mensal, prazo, simulações)
 *   **Ajustes de orçamento** com base em padrões de consumo
-*   **Alertas proativos** sobre gastos fora do padrão
+*   **Alertas pontuais** (ex.: insight de **maior gasto** no período configurado)
 *   **Explicações financeiras educativas**
-*   **Sugestões fundamentadas em dados**, sempre com disclaimers
+*   **Sugestões fundamentadas em dados**, sempre com **disclaimers**
 
 ### Como a MAIA formula as respostas?
 
@@ -31,20 +33,20 @@ A MAIA utiliza um **fluxo híbrido**:
 #### 1) **Cérebro determinístico (Python local)**
 
 *   Detecta intenção
-*   Calcula meta
+*   Calcula metas
 *   Analisa orçamento
 *   Resume produtos
-*   Gera *fatos confiáveis*:
-    *   ex.: `Entrada=5000`, `Saída=2364`, `Saldo=2636`, `TopCategorias=Alimentação:450`
+*   Gera **fatos confiáveis**, por exemplo:\
+    `Entrada=5000`, `Saída=2364`, `Saldo=2636`, `TopCategorias=Alimentação:450`
 
 #### 2) **Ollama local (opcional) – “modo narrador”**
 
-Quando ativado, o LLM recebe **exclusivamente os fatos produzidos pelo determinístico** e reescreve a resposta em português natural, mantendo:
+Quando ativado, o LLM recebe **exclusivamente os fatos produzidos pelo determinístico** e **reformula** a resposta em português natural, mantendo:
 
 *   clareza
 *   tom humano
-*   markdown bem formatado
-*   *sem inventar dados*
+*   Markdown bem formatado
+*   **sem inventar dados**
 
 Se o LLM falhar, o sistema **continua funcionando** com templates determinísticos.
 
@@ -79,7 +81,7 @@ Serve tanto para iniciantes quanto para usuários que precisam de acompanhamento
 *   Empática
 *   Objetiva
 *   Transparente
-*   Baseada em fatos
+*   **Baseada em fatos**
 *   Jamais imperativa ou prescritiva
 
 ### Tom de Comunicação
@@ -87,7 +89,7 @@ Serve tanto para iniciantes quanto para usuários que precisam de acompanhamento
 *   Acessível, simples e profissional
 *   Frases curtas
 *   Jargões evitados
-*   Sempre aberta a explicar com mais detalhes (“Quer ver o passo a passo?”)
+*   Sempre aberta a explicar com mais detalhes (**“Quer ver o passo a passo?”**)
 
 ***
 
@@ -132,13 +134,33 @@ flowchart TD
 
 ## Componentes
 
-| Componente                | Papel                                                                                                                                  |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| **Interface (Streamlit)** | Chat com streaming de texto, indicadores “digitando…”, histórico, toggle de LLM.                                                       |
-| **Motor Determinístico**  | Cuida de **toda a lógica real**: cálculos, detecção de intenção, análise de dados, formatação de fatos.                                |
-| **Base de Conhecimento**  | Arquivos locais em `data/`: `transacoes.csv`, `historico_atendimento.csv`, `perfil_investidor.json`, `produtos_financeiros.json`.      |
-| **LLM Local (Ollama)**    | Opcional. Reescreve **fatos** em texto natural. Não calcula nada. Modelos: `llama3.2:3b-instruct`, `phi3:mini`, `mistral:7b-instruct`. |
-| **Guardrails**            | LGPD, recusa a PII, recusa clima/saúde/assuntos fora do escopo, citações de fonte, anti-alucinação.                                    |
+| Componente                | Papel                                                                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **Interface (Streamlit)** | Chat com streaming de texto, indicadores “digitando…”, histórico e **menu lateral padrão (sidebar)**.                                 |
+| **Motor Determinístico**  | Cuida de **toda a lógica real**: cálculos, detecção de intenção, análise de dados, formatação de fatos.                               |
+| **Base de Conhecimento**  | Arquivos locais em `data/`: `transacoes.csv`, `historico_atendimento.csv`, `perfil_investidor.json`, `produtos_financeiros.json`.     |
+| **LLM Local (Ollama)**    | **Opcional.** Reescreve **fatos** em texto natural. Não calcula nada. Exemplos: `mistral:7b-instruct`, `mistral:latest`, `phi3:mini`. |
+| **Guardrails**            | LGPD, recusa a PII, recusa clima/saúde/assuntos fora do escopo, citações de fonte, anti‑alucinação.                                   |
+
+***
+
+## 🎛️ Menu Lateral (Sidebar) — Comportamento Padrão
+
+A MAIA utiliza uma **sidebar fixa** como parte oficial do fluxo da aplicação.\
+Ela controla o comportamento do agente e o recorte de dados usado nas análises.
+
+### Componentes da Sidebar
+
+| Componente                              | Função                                                                                                                                 |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Usar LLM local (Ollama)**             | Liga/desliga a reescrita por IA local. **OFF**: modo 100% determinístico.                                                              |
+| **Modelo (Ollama)**                     | Escolhe o modelo local instalado (ex.: `mistral:7b-instruct`, `mistral:latest`, `phi3:mini`). Muda o tom/estilo, **não** os números.   |
+| **Janela de análise (dias)**            | Define quantos dias de transações serão considerados em orçamento e **maior gasto**. Impacta **entradas, saídas, saldo e categorias**. |
+| **Mostrar status dos arquivos (debug)** | Mostra se os arquivos em `data/` estão presentes/legíveis. Recurso de desenvolvimento e auditoria.                                     |
+| **Ver contexto atual**                  | Exibe o contexto consolidado (perfil, metas, últimas transações, histórico e produtos) que o agente utiliza internamente.              |
+
+**Benefícios**\
+Transparência, controle sobre IA, auditabilidade e previsibilidade do comportamento.
 
 ***
 
@@ -146,15 +168,15 @@ flowchart TD
 
 ### Estratégias Adotadas
 
-*   ✅ Respostas sempre baseadas **somente** nos dados calculados ou informados.
-*   ✅ LLM recebe apenas **fatos estruturados** → não pode inventar.
-*   ✅ Checagens de escopo: clima, saúde, política → recusado educadamente.
-*   ✅ LGPD total: bloqueio de senha, CPF, CVV, dados de terceiros.
+*   ✅ Respostas sempre baseadas **somente** nos dados calculados ou informados
+*   ✅ LLM recebe apenas **fatos estruturados** → **não** pode inventar
+*   ✅ Checagens de escopo: clima, saúde, política → **recusado** educadamente
+*   ✅ LGPD total: bloqueio de senha, CPF, CVV, dados de terceiros
 *   ✅ Citações obrigatórias de fonte:
-    > “Fonte: produtos\_financeiros.json”
-*   ✅ Disclaimers automáticos para simulações.
-*   ✅ Fallback automático ao modo determinístico se o LLM falhar.
-*   ✅ Proteção contra prompt injection (não executa ações perigosas).
+    > “Fonte: `produtos_financeiros.json`”
+*   ✅ Disclaimers automáticos para simulações
+*   ✅ Fallback automático ao modo determinístico se o LLM falhar
+*   ✅ Proteção contra prompt injection (não executa instruções perigosas)
 
 ***
 
@@ -180,7 +202,7 @@ A MAIA funciona assim:
 1.  **Python calcula.**
 2.  **Python extrai fatos e números.**
 3.  **Se LLM estiver ligado:**\
-    Ele **reescreve** esses fatos em texto natural → *sem alterar valores*.
+    Reescreve esses fatos em texto natural → *sem alterar valores*.
 4.  **Se LLM estiver desligado:**\
     Os **templates determinísticos** são exibidos.
 5.  Em ambos os casos → **segurança primeiro**, sem alucinação.

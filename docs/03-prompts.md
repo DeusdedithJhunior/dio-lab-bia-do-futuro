@@ -1,8 +1,3 @@
-Perfeito, Deusdedit!  
-Segue o **`docs/03-prompts.md` revisado por completo**, alinhado às **versões finais** de `agente.py`, `app.py`, `config.py` e `requirements.txt`. Mantive tudo **data‑driven** (anti‑alucinação), LLM **apenas reescrevendo**, **rodapé de Fontes obrigatório** e a **janela de análise** impactando os fatos.
-
-> Pode copiar e substituir o arquivo atual.
-
 ***
 
 # Prompts do Agente — MAIA

@@ -1,188 +1,296 @@
-# Documentação do Agente
-
-## Caso de Uso
-
-### Problema
-
-> Qual problema financeiro seu agente resolve?
-
-Muitas pessoas têm dificuldade em **organizar suas finanças**, entender **para onde o dinheiro está indo** e **como alcançar metas financeiras** (ex.: viagem, quitar dívidas, reserva de emergência).\
-Elas não sabem quanto precisam guardar, como ajustar o orçamento ou qual o prazo realista para atingir uma meta.\
-Além disso, informações estão dispersas e o usuário não tem clareza de como transformá-las em decisões práticas.
 
 ***
 
-### Solução
+# Documentação do Agente - MAIA Assistente Financeira (MVP Local)
 
-> Como o agente resolve esse problema de forma proativa?
+A MAIA é o agente financeiro criado para **organizar orçamento**, **gerar relatórios**, **simular metas**, **explicar produtos**, **oferecer educação financeira** e **resumir a saúde financeira do usuário**, tudo **localmente** (sem APIs externas), com **zero alucinação** e **transparência total**.
 
-A MAIA identifica a **intenção** do usuário (ex.: criar meta, analisar gastos, revisar orçamento), processa **dados reais da base local** e entrega:
+## ✨ Por que o nome é MAIA?
 
-*   **Planejamento de metas** (aportemensal, prazo, simulações)
-*   **Ajustes de orçamento** com base em padrões de consumo
-*   **Alertas proativos** sobre gastos fora do padrão
-*   **Explicações financeiras educativas**
-*   **Sugestões fundamentadas em dados**, sempre com disclaimers
+O nome **MAIA** foi escolhido por três razões principais: **sentido**, **sonoridade** e **personalidade do agente**.
 
-### Como a MAIA formula as respostas?
+Além disso:
 
-A MAIA utiliza um **fluxo híbrido**:
+**MAIA representa a ideia de uma mentora inteligente, acolhedora e voltada para autonomia financeira — um acrônimo de _Mentora de Autonomia e Inteligência Financeira_.**
 
-#### 1) **Cérebro determinístico (Python local)**
+Esse nome traduz perfeitamente o propósito do agente:
 
-*   Detecta intenção
-*   Calcula meta
-*   Analisa orçamento
-*   Resume produtos
-*   Gera *fatos confiáveis*:
-    *   ex.: `Entrada=5000`, `Saída=2364`, `Saldo=2636`, `TopCategorias=Alimentação:450`
+- apoiar sem impor,  
+- ensinar sem complicar,  
+- ajudar o usuário a ganhar **clareza**, **autonomia** e **segurança** nas próprias decisões.  
 
-#### 2) **Ollama local (opcional) – “modo narrador”**
-
-Quando ativado, o LLM recebe **exclusivamente os fatos produzidos pelo determinístico** e reescreve a resposta em português natural, mantendo:
-
-*   clareza
-*   tom humano
-*   markdown bem formatado
-*   *sem inventar dados*
-
-Se o LLM falhar, o sistema **continua funcionando** com templates determinísticos.
+É simples, humano, fácil de lembrar e carrega um significado que combina com a missão do projeto.
 
 ***
 
-## Público-Alvo
+# 🧩 Caso de Uso
 
-> Quem vai usar esse agente?
+## Problema
 
-Pessoas que desejam:
+Muitas pessoas têm dificuldades em:
 
-*   organizar seu orçamento
-*   planejar metas financeiras
-*   receber orientação acessível e educativa
-*   entender gastos e reduzir desperdícios
-*   tomar decisões com maior segurança
+*   entender **como estão suas finanças**;
+*   saber **como e onde estão gastando**;
+*   identificar **padrões de despesas**;
+*   saber **quanto precisam guardar** para uma reserva;
+*   entender **como produtos financeiros funcionam** de forma simples.
 
-Serve tanto para iniciantes quanto para usuários que precisam de acompanhamento prático.
+As informações geralmente estão espalhadas, e falta um jeito **simples e seguro** de transformar esses dados em clareza.
 
 ***
 
-## Persona e Tom de Voz
+## Solução
 
-### Nome do Agente
+A **MAIA** analisa dados financeiros reais da pasta `data/` e responde perguntas como:
+
+*   **“Como estão as minhas finanças?”**\
+    (resumo executivo: entradas, saídas, saldo, top categorias, maior gasto, transações recentes, perfil, reserva, exemplos educativos)
+
+*   **“Quanto gastei?”**\
+    (gasto total na janela)
+
+*   **“Quanto gastei com alimentação?”**\
+    (gasto por categoria)
+
+*   **“Qual é meu saldo?”**\
+    (entradas – saídas)
+
+*   **"Qual o meu perfil de investidor?”**
+
+*   **"Quanto rende o produto X?”**\
+    (usa somente o que está registrado em `produtos_financeiros.json`)
+
+*   **“Onde investir?”**\
+    (resposta educativa baseada no perfil, **sem recomendação** de ativo)
+
+Tudo isso com:
+
+*   respostas determinísticas confiáveis;
+*   rodapé **Fontes** mostrando quais arquivos foram usados;
+*   proteção contra temas fora do escopo;
+*   recusa automática a informações sensíveis.
+
+***
+
+# 🧠 Como a MAIA formula respostas
+
+A MAIA funciona com um **fluxo híbrido**:
+
+***
+
+## 1) Motor Determinístico (Python local) → **Fonte de Verdade**
+
+Ele faz **todo o trabalho real**:
+
+*   detecta intenção (regex + normalização sem acentos)
+*   calcula:
+    *   **entradas, saídas, saldo**
+    *   **gasto total**
+    *   **gasto por categoria**
+    *   **maior gasto**
+    *   **gasto mensal estimado**
+    *   **faixa de reserva 3–6 meses**
+    *   **aporte mensal** de metas
+*   seleciona produtos compatíveis com **risco do perfil**
+*   monta textos estruturados
+*   adiciona **rodapé de Fontes**
+
+⚠️ O determinístico **não alucina**:\
+se faltar dado na base, ele diz **“Não encontrei…”**.
+
+***
+
+## 2) LLM Local (Ollama) — *Modo Narrador* (Opcional)
+
+*   Só entra em ação se o usuário habilitar na sidebar.
+*   **Nunca calcula nada.**
+*   **Nunca altera números.**
+*   Recebe apenas:
+    *   **FATOS** calculados pelo motor
+    *   **INSTRUÇÕES** de estilo
+    *   **FONTES** que devem aparecer no final
+
+Sua função é apenas:
+
+> “Reescrever o texto determinístico de forma mais clara, fluida e acolhedora.”
+
+Se o Ollama travar, o determinístico assume 100%.
+
+***
+
+# 🧑‍💼 Público-Alvo
+
+*   Pessoas que querem **entender sua situação financeira**
+*   Usuários iniciantes que precisam de explicações simples
+*   Pessoas que não sabem por onde começar seu planejamento financeiro
+*   Usuários que preferem um assistente **local e seguro** (sem internet)
+
+***
+
+# 🎭 Persona e Tom de Voz
+
+## Nome do agente
 
 **MAIA – Mentora de Autonomia e Inteligência Financeira**
 
-### Personalidade (estável em ambos os modos)
+## Personalidade
 
-*   Consultiva
 *   Educativa
 *   Empática
-*   Objetiva
-*   Transparente
+*   Clara
+*   Não prescritiva
 *   Baseada em fatos
-*   Jamais imperativa ou prescritiva
+*   Transparente
+*   Acolhedora
 
-### Tom de Comunicação
+## Tom
 
-*   Acessível, simples e profissional
-*   Frases curtas
-*   Jargões evitados
-*   Sempre aberta a explicar com mais detalhes (“Quer ver o passo a passo?”)
-
-***
-
-## Exemplos de Linguagem
-
-**Saudação:**
-
-> “Olá! Sou a MAIA. Quer revisar seu orçamento ou criar uma nova meta hoje?”
-
-**Confirmação:**
-
-> “Entendi! Vou usar suas últimas transações para te trazer uma análise mais precisa, tudo bem?”
-
-**Erro/Limitação:**
-
-> “Ainda não tenho dados suficientes para isso. Posso usar sua base recente ou te mostrar um exemplo aproximado?”
+*   Português natural, frases curtas
+*   Sem jargões complicados
+*   Sempre pode explicar o passo a passo
+*   Sempre neutra (não recomenda ativos)
 
 ***
 
-## Arquitetura
+# 💬 Exemplos de Linguagem
 
-### Diagrama
+### Saudação
 
-```mermaid
+> “Olá! Sou a MAIA. Quer revisar seu orçamento ou criar uma nova meta?”
+
+### Confirmação
+
+> “Entendido! Vou analisar suas transações da janela atual.”
+
+### Recusa por Limitação
+
+> “Não tenho essa informação no contexto. Posso usar seus dados da pasta `data/`.”
+
+***
+
+# 🏗 Arquitetura
+
+## Diagrama
 flowchart TD
     A[Usuário] -->|Mensagem| B[Interface - Streamlit]
 
-    B --> C[Orquestrador do Agente]
+    B --> C["Orquestrador do Agente (app.py)"]
 
-    C --> D[Motor Determinístico\nCálculos locais: metas, orçamento, produtos]
-    C --> E["(Base de Conhecimento Local\nCSV/JSON em data/)"]
-    C --> F["LLM Local (Ollama)\nReescrita de Respostas"]
+    C --> D[Motor Determinístico<br/>Cálculos: resumo, metas, orçamento, produtos]
+    C --> E["Base Local (CSV/JSON)<br/>data/"]
+    C --> F["LLM Local (Ollama)<br/>Reescrita Opcional"]
 
     D --> C
     E --> C
     F --> C
 
-    C --> G[Validação / Guardrails]
-    G --> H[Resposta Final]
-```
+    C --> G[Guardrails<br/>LGPD, escopo, fontes]
+    G --> H["Resposta Final (streaming)"]
 ***
 
-## Componentes
+# ⚙️ Componentes (versão final)
 
-| Componente                | Papel                                                                                                                                  |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| **Interface (Streamlit)** | Chat com streaming de texto, indicadores “digitando…”, histórico, toggle de LLM.                                                       |
-| **Motor Determinístico**  | Cuida de **toda a lógica real**: cálculos, detecção de intenção, análise de dados, formatação de fatos.                                |
-| **Base de Conhecimento**  | Arquivos locais em `data/`: `transacoes.csv`, `historico_atendimento.csv`, `perfil_investidor.json`, `produtos_financeiros.json`.      |
-| **LLM Local (Ollama)**    | Opcional. Reescreve **fatos** em texto natural. Não calcula nada. Modelos: `llama3.2:3b-instruct`, `phi3:mini`, `mistral:7b-instruct`. |
-| **Guardrails**            | LGPD, recusa a PII, recusa clima/saúde/assuntos fora do escopo, citações de fonte, anti-alucinação.                                    |
-
-***
-
-## Segurança e Anti‑Alucinação
-
-### Estratégias Adotadas
-
-*   ✅ Respostas sempre baseadas **somente** nos dados calculados ou informados.
-*   ✅ LLM recebe apenas **fatos estruturados** → não pode inventar.
-*   ✅ Checagens de escopo: clima, saúde, política → recusado educadamente.
-*   ✅ LGPD total: bloqueio de senha, CPF, CVV, dados de terceiros.
-*   ✅ Citações obrigatórias de fonte:
-    > “Fonte: produtos\_financeiros.json”
-*   ✅ Disclaimers automáticos para simulações.
-*   ✅ Fallback automático ao modo determinístico se o LLM falhar.
-*   ✅ Proteção contra prompt injection (não executa ações perigosas).
+| Componente                           | Papel                                                                                                 |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| **Interface Streamlit**              | Chat, sidebar (LLM ON/OFF, modelo, janela de análise), histórico, diagnóstico.                        |
+| **Motor Determinístico (agente.py)** | Toda a lógica: cálculos, agregações, intenções, formatação, rodapés, anti‑alucinação.                 |
+| **Base Local (`data/`)**             | `transacoes.csv`, `perfil_investidor.json`, `produtos_financeiros.json`, `historico_atendimento.csv`. |
+| **LLM Local (Ollama)**               | Reescrita opcional. Não altera fatos.                                                                 |
+| **Guardrails**                       | LGPD, temas bloqueados, recusa a dados sensíveis, limites de escopo, rodapés obrigatórios.            |
 
 ***
 
-## Limitações Declaradas
+# 🛡 Segurança e Anti‑Alucinação
 
-> O que o agente **NÃO** faz?
+### A MAIA segue estes princípios:
 
-*   ❌ Prever rentabilidade futura
-*   ❌ Recomendar investimentos
-*   ❌ Executar transações financeiras
-*   ❌ Acessar APIs externas online
-*   ❌ Operar informações fora do escopo financeiro
-*   ❌ Processar dados pessoais não fornecidos
-*   ❌ Fazer análises avançadas de crédito/risco
-*   ❌ Interpretar sinais de mercado ou macroeconomia
+*   **Jamais cria valores** (usa apenas os dados dos CSV/JSON)
+*   Se não existir a informação → **admite ausência**
+*   Nunca responde sobre:
+    *   clima, tempo, saúde, política, medicina
+*   Proteção LGPD:
+    *   nunca pede senha, token, CPF, cartão, CVV
+*   Respostas sempre com **rodapé de Fontes**
+*   Metas e produtos sempre com **disclaimer educativo**
+*   Recomendação de investimento **nunca** é dada — apenas educação compatível por risco
+*   O LLM **não pode trocar números** (recebe FATOS fechados)
 
 ***
 
-## Resumo Final (da arquitetura com Ollama)
+# 🔍 Intenções que a MAIA reconhece (versão final)
 
-A MAIA funciona assim:
+### 1. Resumo Executivo → **“Como estão as minhas finanças?”**
 
-1.  **Python calcula.**
-2.  **Python extrai fatos e números.**
-3.  **Se LLM estiver ligado:**\
-    Ele **reescreve** esses fatos em texto natural → *sem alterar valores*.
-4.  **Se LLM estiver desligado:**\
-    Os **templates determinísticos** são exibidos.
-5.  Em ambos os casos → **segurança primeiro**, sem alucinação.
+*   Entradas, saídas, saldo
+*   Top 3 categorias
+*   Maior transação
+*   Amostra de transações
+*   Perfil + reserva 3–6 meses
+*   Exemplos educativos por risco
+*   Próximos passos
+
+### 2. Gasto total → “Quanto gastei?”
+
+### 3. Gasto por categoria → “Quanto gastei com alimentação?”
+
+### 4. Saldo → “Qual é meu saldo?”
+
+### 5. Maior gasto → “Qual foi o meu maior gasto?”
+
+### 6. Recomendação educativa (compatível com perfil)
+
+→ “Onde investir?”
+
+### 7. “Quanto rende X?”
+
+→ baseado no `produtos_financeiros.json`
+
+### 8. Perfil de investidor
+
+→ “Qual o meu perfil de investidor?”
+
+### 9. Metas
+
+→ “Quero juntar X em Y meses”
+
+### 10. Produtos (listagem/explicação)
+
+→ “Explique CDB”
+
+### 11. Ajuda
+
+→ “Como funciona?”
+
+### 12. Fallback
+
+→ Sugere perguntas úteis
+
+***
+
+# 🚧 Limitações
+
+A MAIA **não faz**:
+
+*   Previsão de mercado
+*   Recomendação de ativos
+*   Análise de crédito
+*   Conectar-se à internet
+*   Interpretar macroeconomia
+*   Alucinar dados faltantes
+*   Executar ordens financeiras
+
+***
+
+# 📌 Resumo da Arquitetura Final
+
+1.  Usuário envia pergunta
+2.  `app.py` → detecta intenção via funções do `agente.py`
+3.  Motor determinístico:
+    *   carrega dados
+    *   calcula
+    *   formata texto + fontes
+4.  Se LLM ON → reescreve
+5.  Streamlit mostra resposta (streaming)
+6.  Guardrails garantem segurança
 
 ***

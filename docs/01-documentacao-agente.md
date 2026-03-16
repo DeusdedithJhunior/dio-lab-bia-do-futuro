@@ -171,6 +171,7 @@ Se o Ollama travar, o determinístico assume 100%.
 # 🏗 Arquitetura
 
 ## Diagrama
+```mermaid
 flowchart TD
     A[Usuário] -->|Mensagem| B[Interface - Streamlit]
 
@@ -186,6 +187,7 @@ flowchart TD
 
     C --> G[Guardrails<br/>LGPD, escopo, fontes]
     G --> H["Resposta Final (streaming)"]
+```
 ***
 
 # ⚙️ Componentes (versão final)

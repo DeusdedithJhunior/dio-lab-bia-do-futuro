@@ -52,6 +52,25 @@ Há duas formas complementares de avaliar:
 > - **LLM OFF** para validar cálculo e fontes; **LLM ON** para avaliar clareza (sem alterar números).
 > - Espera-se que toda resposta baseada em dados finalize com `> **Fontes**: ...`.
 
+
+### Teste 0: Resumo de finanças (visão executiva)
+
+- **Pergunta:** `Como estão as minhas finanças?`
+- **O que o agente faz:**
+  - Intenção: **resumo de finanças**
+  - Bases:
+    - `transacoes.csv` → **entradas, saídas, saldo**, **top 3 categorias**, **maior transação**, **amostra recente**
+    - (opcional) `perfil_investidor.json` → **perfil** + **reserva 3–6 meses** (usa gasto mensal estimado)
+    - (opcional) `produtos_financeiros.json` → **exemplos educativos compatíveis por risco** (sem recomendar ativo)
+  - Respeita **janela** da sidebar
+- **Resposta esperada:** Seções curtas e objetivas (entradas, saídas, saldo; categorias; maior transação; amostra; perfil e reserva; próximos passos) com rodapé **Fontes** listando **somente** as bases consultadas.
+- **Critério de aceitação:**
+  - Números batem com o CSV na **janela**
+  - Se houver perfil, mostra **faixa de reserva 3–6 meses** e, se existir valor já guardado, calcula **quanto falta**
+  - **Sem recomendação** de ativo; apenas exemplos compatíveis por **risco**
+  - Rodapé `> **Fontes**:` correto
+- **Resultado:** [x] Correto  [ ] Incorreto
+
 ### Teste 1: Consulta de gastos (por categoria)
 
 - **Pergunta:** `Quanto gastei com alimentação?`
@@ -163,8 +182,4 @@ Há duas formas complementares de avaliar:
 
 ---
 
-## Procedimento de Teste (passo a passo)
-
-1. Abra o app:
-   ```bash
-   streamlit run src/app.py
+- [x] A intenção **Resumo de finanças** apresenta **entradas, saídas, saldo**, top 3 categorias, maior transação, amostra recente e, quando aplicável, perfil & reserva 3–6 meses, com **Fontes** corretas.

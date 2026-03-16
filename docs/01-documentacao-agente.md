@@ -190,7 +190,7 @@ flowchart TD
 ```
 ***
 
-# ⚙️ Componentes (versão final)
+# ⚙️ Componentes
 
 | Componente                           | Papel                                                                                                 |
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
@@ -201,6 +201,34 @@ flowchart TD
 | **Guardrails**                       | LGPD, temas bloqueados, recusa a dados sensíveis, limites de escopo, rodapés obrigatórios.            |
 
 ***
+
+## Escolha do modelo (Ollama) e justificativa técnica
+
+Neste MVP, a MAIA utiliza **LLM local apenas como narrador** (reescrita do texto), enquanto **cálculos e fatos** vêm do motor **determinístico**. Por isso, priorizamos **modelos menores** e mais leves no Ollama, garantindo:
+
+- **Estabilidade** em máquinas com **RAM/VRAM limitadas**;
+- **Baixa latência** para reescrita;
+- **Zero impacto** sobre números (o LLM não calcula nem altera fatos).
+
+### Por que não usamos o modelo maior do início?
+Durante os testes iniciais, modelos maiores demandaram **mais memória** que o disponível na máquina de desenvolvimento, causando **travamentos** e **encerramentos** do servidor local. Para garantir uma demo fluida e repetível, padronizamos um **modelo compacto** como padrão.
+
+### Padrão atual e opções suportadas
+- **Padrão (sidebar)**: um modelo **leve** do Ollama (ex.: `mistral:7b-instruct`, `phi3:mini` ou `llama3.2:3b-instruct`)  
+- **Outras opções (configuráveis)**: a lista aparece na **sidebar** e pode ser alterada sem reiniciar o app.
+
+> **Nota**: trocar o modelo **só altera o estilo da redação**. Os **números** e **Fontes** continuam vindo do determinístico.
+
+### Quando (e como) trocar de modelo
+- Se sua máquina tiver **mais memória** e você desejar um texto mais elaborado, troque o modelo na **sidebar** (ou no `src/config.py`).
+- Se notar **lentidão** ou **falhas por memória**, volte ao modelo padrão **leve**.
+
+### Dicas rápidas (memória/performance)
+- Feche apps pesados antes de iniciar o Ollama/Streamlit.  
+- Use **janela de análise** menor na sidebar (reduz contexto do texto).  
+- Com **LLM OFF** (toggle), o app segue **100% determinístico**.
+
+> Em resumo: escolhemos um modelo **leve** por **constrangimento de memória** da máquina local, sem qualquer perda de precisão, pois os **fatos** sempre vêm do **motor determinístico** e das **Fontes** (CSV/JSON).
 
 # 🛡 Segurança e Anti‑Alucinação
 

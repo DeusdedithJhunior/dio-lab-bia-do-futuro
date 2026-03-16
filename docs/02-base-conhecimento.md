@@ -149,7 +149,7 @@ O **motor determinístico** (em `agente.py`) é responsável por:
 | **Perfil de investidor** (“Qual meu perfil?”)   | `perfil_investidor.json`                                                | Exibe `perfil_investidor`, `renda_mensal`, `objetivo_principal`, contagem de `metas`.                                  |
 | **Meta (simulação)**                            | — (determinístico puro)                                                 | Calcula aporte mensal (com/sem taxa).                                                                                  |
 | **Fora do escopo / Sensíveis**                  | —                                                                       | Recusa educada; **sem** fontes.                                                                                        |
-
+| **Resumo de finanças** (“Como estão as minhas finanças?”) | `transacoes.csv` (+ `perfil_investidor.json` e `produtos_financeiros.json` quando aplicável) | Entradas, saídas, saldo, **top 3 categorias**, **maior transação**, **amostra recente**; se houver perfil, **reserva 3–6 meses** e exemplos educativos compatíveis por risco (sem prescrição). |
 ***
 
 ## 5) Efeito da Sidebar sobre a Base
@@ -189,6 +189,7 @@ O **motor determinístico** (em `agente.py`) é responsável por:
 2.  **Rodapé de Fontes** é obrigatório quando a resposta usa base(s).
 3.  Se o dado **não existir**, a MAIA **diz que não tem**.
 4.  Com LLM ON, o modelo **não** altera **números**; só **reescreve**.
+5.  A visão executiva **não** introduz dados novos: apenas resume fatos das bases. Se não houver perfil/produtos, a seção correspondente é omitida e a ausência é admitida.
 
 ***
 

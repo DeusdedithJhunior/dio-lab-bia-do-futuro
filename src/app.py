@@ -4,7 +4,7 @@ app.py — UI (Streamlit) da MAIA
 --------------------------------
 - Sidebar padrão (LLM, modelo, janela, debug, contexto + diagnóstico)
 - Saudação única (streaming) com nome do perfil e rerun
-- Roteamento robusto: recomendação (educativa/compatível com perfil), gasto total,
+- Roteamento robusto: resumo de finanças, recomendação (educativa/compatível), gasto total,
   gasto por categoria, saldo, maior gasto, metas, rentabilidade de produto, produtos,
   perfil de investidor, ajuda, fallback
 - Determinístico é fonte de verdade; LLM só reescreve (opcional)
@@ -118,6 +118,7 @@ with st.sidebar:
     with st.expander("Diagnóstico (dev)"):
         try:
             funcs = [
+                "eh_intencao_resumo_financas", "resposta_resumo_financas",
                 "eh_intencao_total_gasto", "resposta_total_gasto",
                 "eh_intencao_saldo", "resposta_saldo",
                 "eh_intencao_gasto_categoria", "resposta_gasto_categoria",
@@ -171,7 +172,7 @@ for msg in st.session_state.historico:
         st.markdown(msg["content"])
 
 # ============ ENTRADA ============
-pergunta = st.chat_input("Digite sua pergunta (ex.: 'Quanto gastei com alimentação?' ou 'Quanto gastei?')")
+pergunta = st.chat_input("Digite sua pergunta (ex.: 'Como estão as minhas finanças?' ou 'Quanto gastei com alimentação?')")
 if pergunta:
     # Guardrails
     if agente.eh_sensivel(pergunta):
@@ -198,8 +199,29 @@ if pergunta:
     janela_atual = st.session_state.get("janela", config.DEFAULT_WINDOW_DAYS)
 
     # ===== ROTEAMENTO POR INTENÇÃO =====
+    # 0) Resumo executivo “Como estão as minhas finanças?”
+    if agente.eh_intencao_resumo_financas(pergunta):
+        base_resp = agente.resposta_resumo_financas(df_tx, perfil, produtos, janela_dias=janela_atual)
+        if usar_llm_flag:
+            fatos = (
+                f"Janela_dias={janela_atual}\n"
+                f"Resumo_orcamento=entradas/saidas/saldo/top_categorias/maior_tx/ultimas\n"
+                f"Perfil={perfil.get('perfil_investidor','-')}\n"
+                f"Exemplos_educativos=compatibilidade_por_risco\n"
+            )
+            instrucoes = (
+                "Reescreva em tom executivo, claro e acolhedor. "
+                "Mantenha números e fatos. Estruture em seções curtas. "
+                "Inclua próximos passos. Não recomende ativo específico."
+            )
+            _ = agente.reescrever_com_llm(
+                usar_llm_flag, modelo_sel, config.SYSTEM_PROMPT,
+                instrucoes, fatos, config.OLLAMA_URL,
+                fontes=['transacoes.csv', 'perfil_investidor.json', 'produtos_financeiros.json']
+            )
+
     # 1) Recomendação EDUCATIVA compatível com perfil
-    if agente.eh_intencao_recomendacao(pergunta):
+    elif agente.eh_intencao_recomendacao(pergunta):
         base_resp = agente.resposta_recomendacao_contextual(df_tx, perfil, produtos, janela_dias=janela_atual)
         if usar_llm_flag:
             fatos = (
@@ -218,15 +240,15 @@ if pergunta:
                 fontes=['transacoes.csv', 'perfil_investidor.json', 'produtos_financeiros.json']
             )
 
-    # 2) Gasto total no período (ex.: "quanto gastei?")
+    # 2) Gasto total no período
     elif agente.eh_intencao_total_gasto(pergunta):
         base_resp = agente.resposta_total_gasto(df_tx, janela_dias=janela_atual)
 
-    # 3) Gasto por categoria (ex.: alimentação)
+    # 3) Gasto por categoria
     elif agente.eh_intencao_gasto_categoria(pergunta):
         base_resp = agente.resposta_gasto_categoria(df_tx, pergunta, janela_dias=janela_atual)
 
-    # 4) Saldo no período
+    # 4) Saldo
     elif agente.eh_intencao_saldo(pergunta):
         base_resp = agente.resposta_saldo(df_tx, janela_dias=janela_atual)
 
@@ -234,7 +256,7 @@ if pergunta:
     elif agente.eh_intencao_maior_gasto(pergunta):
         base_resp = agente.resumo_maior_gasto(df_tx, janela_dias=janela_atual)
 
-    # 6) Perfil do investidor
+    # 6) Perfil de investidor
     elif agente.eh_intencao_perfil_investidor(pergunta):
         base_resp = agente.resposta_perfil_investidor(perfil)
 
@@ -270,7 +292,7 @@ if pergunta:
                 "Ex.: `Quero juntar 10000 em 12 meses`."
             )
 
-    
+    # 8) “Quanto rende X?”
     elif (nome_prod := agente.eh_intencao_rentabilidade_produto(pergunta)) is not None:
         base_resp = agente.resposta_rentabilidade_produto(produtos, nome_prod)
 
@@ -283,10 +305,11 @@ if pergunta:
     elif any(k in t for k in ["ajuda", "dúvida", "duvida", "como funciona"]):
         base_resp = "Posso te ajudar com orçamento, metas, simulações simples e explicar produtos financeiros da nossa base. Sobre o que deseja falar?"
 
-    # 11) Fallback (sem frase da saudação)
+    # 11) Fallback
     else:
         base_resp = (
             "Não entendi exatamente. Você pode perguntar, por exemplo:\n"
+            "- *Como estão as minhas finanças?*\n"
             "- *Quanto gastei?*\n"
             "- *Quanto gastei com alimentação?*\n"
             "- *Qual é meu saldo?*\n"

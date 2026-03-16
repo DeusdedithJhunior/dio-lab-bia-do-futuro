@@ -273,5 +273,6 @@ Se **nenhuma base** foi usada (ex.: recusa fora do escopo), **não** citar fonte
 *   Este documento reflete o comportamento do agente nas versões finais de `agente.py`, `app.py`, `config.py` e `requirements.txt`.
 *   Se novas intenções forem adicionadas, inclua **novas instruções** na seção **5)** e **novos few‑shots** na seção **6)**.
 *   Mantenha o `SYSTEM_PROMPT` **alinhado** com as regras determinísticas do projeto para preservar **anti‑alucinação** e **citação de fontes**.
+*   Modelos maiores podem exigir mais RAM/VRAM; escolha versões leves se houver instabilidade.
 
 ***

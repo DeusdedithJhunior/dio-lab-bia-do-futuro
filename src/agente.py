@@ -10,6 +10,7 @@ agente.py — Lógica do agente MAIA (determinístico + wrappers LLM)
 - Produtos: listagem/explicação e “quanto rende X?”
 - Recomendação EDUCATIVA compatível com o perfil (sem recomendar ativo específico)
 - Perfil do investidor (resposta direta)
+- Resumo executivo (“Como estão as minhas finanças?”)
 - Montar contexto (para botão da sidebar “Ver contexto atual”)
 - Wrappers do Ollama (LLM opcional; apenas reescreve, não cria fatos)
 """
@@ -94,7 +95,7 @@ def fonte_rodape(arquivos: List[str]) -> str:
         return ""
     return "\n\n> **Fontes**: " + ", ".join(unicos) + "."
 
-# --- TEMPLATE de produtos (para evitar NameError) ---
+# --- TEMPLATE de produtos ---
 def tpl_resposta_produtos(resumos: List[str], dicas: List[str]) -> str:
     lista_prod = md_lista(resumos) if resumos else "- (Nenhum produto encontrado)"
     lista_dicas = md_lista(dicas) if dicas else ""
@@ -109,6 +110,14 @@ def tpl_resposta_produtos(resumos: List[str], dicas: List[str]) -> str:
 # =========================
 # Determinísticos principais
 # =========================
+def _selecionar_janela(df_tx: pd.DataFrame, janela_dias: int) -> pd.DataFrame:
+    hoje = datetime.now().date()
+    inicio = hoje - timedelta(days=janela_dias)
+    df = df_tx[df_tx["data"].dt.date >= inicio].copy()
+    if df.empty:
+        df = df_tx.copy()
+    return df
+
 def analisar_orcamento(df_tx: pd.DataFrame, janela_dias: int = 30, max_linhas: int = 10) -> Tuple[str, Dict]:
     if df_tx is None or df_tx.empty:
         return ("Não encontrei transações para analisar. "
@@ -117,11 +126,7 @@ def analisar_orcamento(df_tx: pd.DataFrame, janela_dias: int = 30, max_linhas: i
             "janela_dias": janela_dias, "entrada": 0.0, "saida": 0.0, "saldo": 0.0, "top_categorias": []
         }
 
-    hoje = datetime.now().date()
-    inicio = hoje - timedelta(days=janela_dias)
-    df = df_tx[df_tx["data"].dt.date >= inicio].copy()
-    if df.empty:
-        df = df_tx.copy()
+    df = _selecionar_janela(df_tx, janela_dias)
 
     total_saida = float(df.loc[_normaliza_series(df["tipo"]) == "saida", "valor"].sum())
     total_entrada = float(df.loc[_normaliza_series(df["tipo"]) != "saida", "valor"].sum())
@@ -184,11 +189,7 @@ def resumo_maior_gasto(df_tx: pd.DataFrame, janela_dias: int = 30) -> str:
         return ("Não encontrei transações para analisar. Podemos ajustar a janela ou importar a base primeiro."
                 + fonte_rodape(['transacoes.csv']))
 
-    hoje = datetime.now().date()
-    inicio = hoje - timedelta(days=janela_dias)
-    df = df_tx[df_tx["data"].dt.date >= inicio].copy()
-    if df.empty:
-        df = df_tx.copy()
+    df = _selecionar_janela(df_tx, janela_dias)
 
     df_saida = df[_normaliza_series(df["tipo"]) == "saida"].copy()
     if df_saida.empty:
@@ -239,16 +240,10 @@ def resposta_saldo(df_tx: pd.DataFrame, janela_dias: int = 30) -> str:
     if df_tx is None or df_tx.empty:
         return ("Não encontrei transações para analisar. Podemos ajustar a janela ou importar a base primeiro."
                 + fonte_rodape(['transacoes.csv']))
-    hoje = datetime.now().date()
-    inicio = hoje - timedelta(days=janela_dias)
-    df = df_tx[df_tx["data"].dt.date >= inicio].copy()
-    if df.empty:
-        df = df_tx.copy()
-
+    df = _selecionar_janela(df_tx, janela_dias)
     total_saida = float(df.loc[_normaliza_series(df["tipo"]) == "saida", "valor"].sum())
     total_entrada = float(df.loc[_normaliza_series(df["tipo"]) != "saida", "valor"].sum())
     saldo = total_entrada - total_saida
-
     return (
         f"{md_titulo('💰 Saldo no período')}\n\n"
         f"{md_lista([f'Janela de análise: {janela_dias} dias', f'Entradas: {fmt_moeda(total_entrada)}', f'Saídas: {fmt_moeda(total_saida)}', f'Saldo: {fmt_moeda(saldo)}'])}\n\n"
@@ -273,14 +268,8 @@ def resposta_total_gasto(df_tx: pd.DataFrame, janela_dias: int = 30) -> str:
     if df_tx is None or df_tx.empty:
         return ("Não encontrei transações para analisar. Podemos ajustar a janela ou importar a base primeiro."
                 + fonte_rodape(['transacoes.csv']))
-    hoje = datetime.now().date()
-    inicio = hoje - timedelta(days=janela_dias)
-    df = df_tx[df_tx["data"].dt.date >= inicio].copy()
-    if df.empty:
-        df = df_tx.copy()
-
+    df = _selecionar_janela(df_tx, janela_dias)
     total_saida = float(df.loc[_normaliza_series(df["tipo"]) == "saida", "valor"].sum())
-
     return (
         f"{md_titulo('🧾 Gasto total no período')}\n\n"
         f"{md_lista([f'Janela de análise: {janela_dias} dias', f'Gasto total: {fmt_moeda(total_saida)}'])}\n\n"
@@ -334,12 +323,7 @@ def resposta_gasto_categoria(df_tx: pd.DataFrame, pergunta: str, janela_dias: in
             + fonte_rodape(['transacoes.csv'])
         )
 
-    hoje = datetime.now().date()
-    inicio = hoje - timedelta(days=janela_dias)
-    df = df_tx[df_tx["data"].dt.date >= inicio].copy()
-    if df.empty:
-        df = df_tx.copy()
-
+    df = _selecionar_janela(df_tx, janela_dias)
     df_cat = df[(_normaliza_series(df["tipo"]) == "saida") & (_normaliza_series(df["categoria"]) == cat)]
     total = float(df_cat["valor"].sum())
 
@@ -475,11 +459,7 @@ def eh_intencao_recomendacao(texto: str) -> bool:
 def gasto_medio_mensal(df_tx: pd.DataFrame, janela_dias: int) -> float:
     if df_tx is None or df_tx.empty:
         return 0.0
-    hoje = datetime.now().date()
-    inicio = hoje - timedelta(days=janela_dias)
-    df = df_tx[df_tx["data"].dt.date >= inicio].copy()
-    if df.empty:
-        df = df_tx.copy()
+    df = _selecionar_janela(df_tx, janela_dias)
     saidas = df[_normaliza_series(df["tipo"]) == "saida"]["valor"].sum()
     fator = 30 / max(1, janela_dias)
     return float(saidas * fator)
@@ -572,13 +552,119 @@ def resposta_recomendacao_contextual(df_tx: pd.DataFrame, perfil: Dict, produtos
     return "".join(partes)
 
 # =========================
-# Perfil do investidor (resposta direta)
+# Resumo executivo (“Como estão as minhas finanças?”)
+# =========================
+def eh_intencao_resumo_financas(texto: str) -> bool:
+    t = _normaliza(texto)
+    gatilhos = [
+        "como estao minhas financas", "como estão minhas finanças",
+        "como estao as minhas financas", "como estão as minhas finanças",
+        "resumo das minhas financas", "resumo financeiro", "visao geral",
+        "como esta meu financeiro", "como está meu financeiro",
+        "saude financeira", "saúde financeira", "overview financeiro"
+    ]
+    padroes = [
+        r".*\b(minhas|meu|as minhas)\b.*\bfinan(c|ç)as\b.*",
+        r".*\b(resumo|vis(ao|ão)\s*geral|overview)\b.*\bfinan(c|ç)eiro(a|as)?\b.*"
+    ]
+    return any(g in t for g in gatilhos) or any(re.search(p, t) for p in padroes)
+
+def resposta_resumo_financas(df_tx: pd.DataFrame, perfil: Dict, produtos: List[Dict], janela_dias: int = 30) -> str:
+    if df_tx is None or df_tx.empty:
+        return ("Não encontrei transações para analisar. Podemos ajustar a janela de análise ou importar a base primeiro."
+                + fonte_rodape(['transacoes.csv']))
+
+    # 1) Orçamento (transacoes)
+    df = _selecionar_janela(df_tx, janela_dias)
+    entradas = float(df.loc[_normaliza_series(df["tipo"]) != "saida", "valor"].sum())
+    saidas = float(df.loc[_normaliza_series(df["tipo"]) == "saida", "valor"].sum())
+    saldo = entradas - saidas
+
+    por_cat = df[_normaliza_series(df["tipo"]) == "saida"].groupby("categoria")["valor"].sum().sort_values(ascending=False).head(3)
+    top_cats = [(str(cat), float(val)) for cat, val in por_cat.items()]
+
+    maior_tx_txt = "- (Não há despesas)"
+    df_saida = df[_normaliza_series(df["tipo"]) == "saida"].copy()
+    if not df_saida.empty:
+        idx_max = df_saida["valor"].idxmax()
+        row_max = df_saida.loc[idx_max]
+        data_fmt = row_max["data"].strftime("%Y-%m-%d") if pd.notnull(row_max["data"]) else "----"
+        maior_tx_txt = f"{data_fmt} · {row_max['descricao']} · {row_max['categoria']} · {fmt_moeda(float(row_max['valor']))}"
+
+    ultimas = df.sort_values("data", ascending=False).head(5)
+    ultimas_txt = []
+    for _, r in ultimas.iterrows():
+        data_fmt = r["data"].strftime("%Y-%m-%d") if pd.notnull(r["data"]) else "----"
+        ultimas_txt.append(f"{data_fmt} · {r['descricao']} · {r['categoria']} · {fmt_moeda(float(r['valor']))} · {r['tipo']}")
+
+    # 2) Perfil e reserva (perfil_investidor.json)
+    fontes = ['transacoes.csv']
+    perfil_inv = str(perfil.get("perfil_investidor", "")).strip()
+    objetivo = str(perfil.get("objetivo_principal", "")).strip()
+    bloco_perfil = ""
+    bloco_prod = ""
+    if perfil_inv:
+        gasto_mensal = gasto_medio_mensal(df_tx, janela_dias)
+        alvo_3m = gasto_mensal * 3
+        alvo_6m = gasto_mensal * 6
+        ja_tem = extrair_reserva_existente(perfil)
+        falta_3m = max(0.0, alvo_3m - ja_tem)
+        falta_6m = max(0.0, alvo_6m - ja_tem)
+
+        itens_perfil = [
+            f"Perfil de investidor: **{perfil_inv}**" + (f" · Objetivo: {objetivo}" if objetivo else ""),
+            f"Gasto mensal estimado: **{fmt_moeda(gasto_mensal)}**",
+            f"Reserva (3–6 meses): **{fmt_moeda(alvo_3m)}** a **{fmt_moeda(alvo_6m)}**",
+        ]
+        if ja_tem > 0:
+            itens_perfil.append(
+                f"Já guardado para a reserva: **{fmt_moeda(ja_tem)}** · faltaria **{fmt_moeda(falta_3m)}** (3m) a **{fmt_moeda(falta_6m)}** (6m)"
+            )
+        else:
+            itens_perfil.append("Não localizei valor já acumulado para reserva no perfil.")
+
+        bloco_perfil = "\n" + md_subtitulo("🧭 Perfil & Reserva de emergência") + "\n" + md_lista(itens_perfil)
+        fontes.append('perfil_investidor.json')
+
+        # 3) Exemplos educativos compatíveis por risco (produtos_financeiros.json)
+        compativeis = _compatibilizar_produtos_por_perfil(perfil, produtos) if produtos else []
+        if compativeis:
+            linhas = []
+            for p in compativeis[:4]:
+                linhas.append(f"- **{p.get('nome')}** ({p.get('categoria')}, risco: {p.get('risco')}) — liquidez: {p.get('liquidez','-')} · {p.get('rentabilidade')}")
+            bloco_prod = "\n\n" + md_subtitulo("📚 Exemplos educativos compatíveis com seu perfil") + "\n" + "\n".join(linhas) + "\n\n> ℹ️ Conteúdo educativo; **não** constitui recomendação."
+            fontes.append('produtos_financeiros.json')
+
+    # 4) Montagem do resumo
+    linhas_top = [f"**{c}**: {fmt_moeda(v)}" for c, v in top_cats]
+    corpo = (
+        f"{md_titulo(f'📊 Seu momento financeiro (janela: {janela_dias} dias)')}\n\n"
+        f"{md_lista([f'Entradas: {fmt_moeda(entradas)}', f'Saídas: {fmt_moeda(saidas)}', f'Saldo do período: **{fmt_moeda(saldo)}**'])}\n\n"
+        f"{md_subtitulo('🏷️ Principais categorias de despesa')}\n"
+        f"{(md_lista(linhas_top) if linhas_top else '- (Sem despesas no período)')}\n\n"
+        f"{md_subtitulo('📉 Maior transação de despesa')}\n"
+        f"- {maior_tx_txt}\n\n"
+        f"{md_subtitulo('🧾 Amostra de transações recentes')}\n"
+        f"{(md_lista(ultimas_txt) if ultimas_txt else '- (Sem transações no período)')}\n"
+        f"{bloco_perfil}"
+        f"{bloco_prod}\n\n"
+        f"**Próximos passos**\n"
+        f"- Posso **simular o aporte mensal** para atingir sua reserva.\n"
+        f"- Prefere ver **detalhamento por categoria** ou **comparar outra janela** (ex.: 60–90 dias)?\n\n"
+        f"{md_disclaimer()}"
+        f"{fonte_rodape(fontes)}"
+    )
+    return corpo
+
+# =========================
+# Perfil de investidor (intenção + resposta)
 # =========================
 def eh_intencao_perfil_investidor(texto: str) -> bool:
     t = _normaliza(texto)
     gatilhos = [
         "meu perfil de investidor", "qual meu perfil", "qual o meu perfil",
-        "perfil de investidor", "meu perfil investidor", "sou conservador", "sou moderado", "sou arrojado"
+        "perfil de investidor", "meu perfil investidor", "sou conservador",
+        "sou moderado", "sou arrojado"
     ]
     return any(g in t for g in gatilhos)
 
@@ -590,9 +676,16 @@ def resposta_perfil_investidor(perfil: Dict) -> str:
     metas = perfil.get("metas", [])
     qtd_metas = len(metas) if isinstance(metas, list) else 0
 
+    lista = [
+        f"Nome: {nome}",
+        f"Perfil: **{perfil_inv}**",
+        f"Renda mensal: {renda}",
+        f"Objetivo principal: {objetivo}",
+        f"Quantidade de metas: {qtd_metas}"
+    ]
     return (
         f"{md_titulo('🧾 Seu perfil de investidor')}\n\n"
-        f"{md_lista([f'Nome: {nome}', f'Perfil: **{perfil_inv}**', f'Renda mensal: {renda}', f'Objetivo principal: {objetivo}', f'Quantidade de metas: {qtd_metas}'])}\n\n"
+        f"{md_lista(lista)}\n\n"
         f"{md_disclaimer()}"
         f"{fonte_rodape(['perfil_investidor.json'])}"
     )
